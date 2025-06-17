@@ -1,0 +1,135 @@
+import os
+import base64
+import matplotlib.pyplot as plt
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+
+# Step 1: Generate RSA Keys (Asymmetric)
+def generate_rsa_keys():
+    print("[*] Generating RSA key pair...")
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public_key = private_key.public_key()
+    return private_key, public_key
+
+
+# Step 2: Generate AES Key (Symmetric)
+def generate_aes_key():
+    print("[*] Generating AES key...")
+    key = os.urandom(32)  # AES-256
+    iv = os.urandom(16)   # Initialization Vector
+    return key, iv
+
+
+# Step 3: Encrypt AES Key using RSA Public Key
+def encrypt_aes_key_rsa(aes_key, public_key):
+    print("[*] Encrypting AES key with RSA public key...")
+    encrypted_key = public_key.encrypt(
+        aes_key,
+        padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+    )
+    return encrypted_key
+
+
+# Step 4: Decrypt AES Key using RSA Private Key
+def decrypt_aes_key_rsa(encrypted_key, private_key):
+    print("[*] Decrypting AES key with RSA private key...")
+    decrypted_key = private_key.decrypt(
+        encrypted_key,
+        padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None)
+    )
+    return decrypted_key
+
+
+# Step 5: Encrypt Message using AES
+def encrypt_message(message, aes_key, iv):
+    print("[*] Encrypting message using AES...")
+    cipher = Cipher(algorithms.AES(aes_key), modes.CFB(iv))
+    encryptor = cipher.encryptor()
+    ciphertext = encryptor.update(message.encode()) + encryptor.finalize()
+    return ciphertext
+
+
+# Step 6: Decrypt Message using AES
+def decrypt_message(ciphertext, aes_key, iv):
+    print("[*] Decrypting message using AES...")
+    cipher = Cipher(algorithms.AES(aes_key), modes.CFB(iv))
+    decryptor = cipher.decryptor()
+    plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+    return plaintext.decode()
+
+
+# Step 7: Visualization of Key Exchange
+def visualize_encryption():
+    print("[*] Generating encryption diagram...")
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.axis('off')
+    ax.set_title('Secure Message Transmission Flow', fontsize=14)
+
+    items = [
+        ("Sender", (0.1, 0.5)),
+        ("RSA Public Key", (0.3, 0.8)),
+        ("Encrypted AES Key", (0.5, 0.8)),
+        ("AES Encrypted Message", (0.5, 0.2)),
+        ("Receiver", (0.9, 0.5)),
+        ("RSA Private Key", (0.7, 0.8)),
+        ("Decrypted AES Key", (0.7, 0.2)),
+    ]
+
+    for text, pos in items:
+        ax.text(*pos, text, bbox=dict(facecolor='lightblue', edgecolor='black'), ha='center', va='center', fontsize=10)
+
+    connections = [
+        ((0.1, 0.5), (0.3, 0.8)),
+        ((0.3, 0.8), (0.5, 0.8)),
+        ((0.1, 0.5), (0.5, 0.2)),
+        ((0.5, 0.8), (0.7, 0.8)),
+        ((0.5, 0.2), (0.7, 0.2)),
+        ((0.7, 0.8), (0.9, 0.5)),
+        ((0.7, 0.2), (0.9, 0.5)),
+    ]
+
+    for start, end in connections:
+        ax.annotate("", xy=end, xytext=start,
+                    arrowprops=dict(arrowstyle="->", lw=1.5))
+
+    plt.savefig("encryption_flow.png")
+    print("[+] Diagram saved as encryption_flow.png")
+    plt.show()
+
+
+# 🔁 Run the Secure Communication Demo
+def secure_communication_demo():
+    message = "Hello Arjav, your message is secure! 🔐"
+
+    # Generate RSA Keys
+    private_key, public_key = generate_rsa_keys()
+
+    # Generate AES Key
+    aes_key, iv = generate_aes_key()
+
+    # Encrypt AES Key with RSA
+    encrypted_aes_key = encrypt_aes_key_rsa(aes_key, public_key)
+
+    # Decrypt AES Key
+    decrypted_aes_key = decrypt_aes_key_rsa(encrypted_aes_key, private_key)
+
+    # Encrypt Message
+    ciphertext = encrypt_message(message, aes_key, iv)
+
+    # Decrypt Message
+    decrypted_message = decrypt_message(ciphertext, decrypted_aes_key, iv)
+
+    # Display Results
+    print("\n[*] Original Message:", message)
+    print("[*] Encrypted Message (base64):", base64.b64encode(ciphertext).decode())
+    print("[*] Decrypted Message:", decrypted_message)
+
+    # Visualize Flow
+    visualize_encryption()
+
+
+if __name__ == "__main__":
+    secure_communication_demo()
